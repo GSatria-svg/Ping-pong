@@ -1,0 +1,127 @@
+import pygame
+from pygame.locals import *
+
+# Initialize Pygame
+pygame.init()
+
+# --- FIXED Class Definitions ---
+class GameSprite(pygame.sprite.Sprite):
+    def __init__(self, player_image, x, y, width, height):
+        super().__init__()
+        # Try to load the image, if it fails, create a colored rectangle instead
+        try:
+            self.image = pygame.transform.scale(pygame.image.load(player_image), (width, height))
+        except:
+            print(f"Warning: Could not find {player_image}. Using a colored rectangle instead.")
+            self.image = pygame.Surface((width, height))
+            if "racket" in player_image:
+                self.image.fill((0, 0, 0)) # Black paddle
+            else:
+                self.image.fill((255, 0, 0)) # Red ball
+
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.speed_y = 5 # Speed for the paddle movement
+
+    def reset(self):
+        self.rect.x = 200
+        self.rect.y = 200
+
+class Player(GameSprite):
+    def update_l(self):
+        keys = pygame.key.get_pressed()
+        # Player 1 controls (W/S)
+        if keys[K_w] and self.rect.y > 0:
+            self.rect.y -= self.speed_y
+        if keys[K_s] and self.rect.y < 500 - self.rect.height:
+            self.rect.y += self.speed_y
+
+    def update_r(self):
+        keys = pygame.key.get_pressed()
+        # Player 2 controls (Up/Down arrows)
+        if keys[K_UP] and self.rect.y > 0:
+            self.rect.y -= self.speed_y
+        if keys[K_DOWN] and self.rect.y < 500 - self.rect.height:
+            self.rect.y += self.speed_y
+
+    def reset(self):
+        self.rect.y = 200 # Only reset the Y position for paddles
+
+# --- Game Scene Setup ---
+back = (200, 255, 255) # Background color
+win_width = 600
+win_height = 500
+window = pygame.display.set_mode((win_width, win_height))
+pygame.display.set_caption("Ping Pong Game")
+window.fill(back)
+
+# Flags responsible for game state
+game = True
+finish = False
+clock = pygame.time.Clock()
+FPS = 60
+
+# Creating ball and paddles 
+# Arguments: (image_path, x, y, width, height)
+racket1 = Player('racket.png', 30, 200, 20, 150) 
+racket2 = Player('racket.png', 550, 200, 20, 150)
+ball = GameSprite('tennis_ball.png', 200, 200, 50, 50)
+
+# Font setup for losing messages
+font = pygame.font.Font(None, 35)
+lose1 = font.render('PLAYER 1 LOSE!', True, (180, 0, 0))
+lose2 = font.render('PLAYER 2 LOSE!', True, (180, 0, 0))
+
+speed_x = 3
+speed_y = 3
+
+# --- Main Game Loop ---
+while game:
+    for e in pygame.event.get():
+        if e.type == QUIT:
+            game = False
+
+    if not finish:
+        window.fill(back)
+        
+        # Move paddles
+        racket1.update_l()
+        racket2.update_r()
+        
+        # Move ball
+        ball.rect.x += speed_x
+        ball.rect.y += speed_y
+
+        # Ball collision with paddles
+        if pygame.sprite.collide_rect(racket1, ball) or pygame.sprite.collide_rect(racket2, ball):
+            speed_x *= -1
+            # Slightly change Y speed to make it dynamic
+            speed_y += 0.5 if speed_y > 0 else -0.5 
+
+        # Ball collision with top/bottom edges
+        if ball.rect.y > win_height - ball.rect.height or ball.rect.y < 0:
+            speed_y *= -1
+
+        # Player 1 loses (ball goes behind left paddle)
+        if ball.rect.x < 0:
+            finish = True
+            
+        # Player 2 loses (ball goes behind right paddle)
+        if ball.rect.x > win_width:
+            finish = True
+
+    else:
+        # If the game is finished, display the text and stop moving elements
+        if ball.rect.x < 0:
+            window.blit(lose1, (200, 200))
+        else:
+            window.blit(lose2, (200, 200))
+            
+        # Note: To restart the game, you'd normally need a button press here.
+        # For now, it just pauses on the game over screen.
+
+    pygame.display.update()
+    clock.tick(FPS)
+
+pygame.quit()
